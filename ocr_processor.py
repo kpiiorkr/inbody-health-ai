@@ -2,34 +2,60 @@
 InBody 결과지 OCR 처리 모듈
 Google Cloud Vision API를 사용하여 InBody 이미지에서 데이터 추출
 """
-
 import os
 import re
+import json
 from typing import Dict, Optional
 from google.cloud import vision
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# Secrets 관리
-try:
-    from secrets_manager import setup_google_credentials
-    GOOGLE_CREDENTIALS_PATH = setup_google_credentials()
-except:
-    GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "google-credentials.json")
+# Google 인증 설정
+def setup_google_credentials():
+    """Google Cloud 인증 설정"""
+    try:
+        import streamlit as st
+        # Streamlit Cloud 환경
+        if 'GOOGLE_CREDENTIALS_JSON' in st.secrets:
+            creds_json = st.secrets['GOOGLE_CREDENTIALS_JSON']
+            creds_path = '/tmp/google-credentials.json'
+            
+            # JSON 파일로 저장
+            with open(creds_path, 'w') as f:
+                if isinstance(creds_json, str):
+                    f.write(creds_json)
+                else:
+                    json.dump(creds_json, f)
+            
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_path
+            return creds_path
+    except:
+        pass
+    
+    # 로컬 환경
+    creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', 'google-credentials.json')
+    if os.path.exists(creds_path):
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_path
+        return creds_path
+    
+    return None
 
 def extract_inbody_data(image_path: str) -> Optional[Dict]:
     """
-    InBody 결과지 이미지에서 체성분 데이터 추출
+    Google Cloud Vision API로 InBody 이미지에서 데이터 추출
     
     Args:
         image_path: InBody 이미지 파일 경로
         
     Returns:
-        추출된 InBody 데이터 딕셔너리 또는 None
+        추출된 InBody 데이터 딕셔너리
     """
+    # Google 인증 설정
+    creds_path = setup_google_credentials()
+    
+    if not creds_path:
+        print("⚠️ Google 인증 파일이 없습니다. Mock 데이터를 사용합니다.")
+        return generate_mock_inbody_data()
+    
     try:
-        # Google Cloud Vision API 클라이언트 초기화
         client = vision.ImageAnnotatorClient()
         
         # 이미지 읽기

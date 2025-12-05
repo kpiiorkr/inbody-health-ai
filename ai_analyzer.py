@@ -4,17 +4,17 @@ Perplexity AI를 사용하여 InBody 데이터 분석 및 건강 조언 생성
 """
 import requests
 from typing import Dict, List, Optional
-from secrets_manager import SecretsManager
+import os
 
-# Secrets 관리
+# API 키 설정 (Streamlit Secrets 또는 환경변수)
 try:
-    from secrets_manager import get_secret
-    PERPLEXITY_API_KEY = get_secret("PERPLEXITY_API_KEY")
+    import streamlit as st
+    PERPLEXITY_API_KEY = st.secrets.get("PERPLEXITY_API_KEY", "")
 except:
-    import os
-    api_key = SecretsManager.get_perplexity_api_key()
-    if not api_key:
-        st.warning("⚠️ Perplexity API 키 미설정. Mock 데이터 사용")
+    PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY", "")
+
+if not PERPLEXITY_API_KEY:
+    PERPLEXITY_API_KEY = "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"
 
 def analyze_inbody_data(
     inbody_data: Dict,
