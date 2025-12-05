@@ -1,0 +1,23 @@
+﻿# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 업로드된 파일들
+uploads/
+results/
+
+# API 키 (중요!)
+.env
+google-credentials.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
