@@ -2,6 +2,11 @@
 
 InBody 체성분 분석 결과를 기반으로 AI가 개인 맞춤형 건강관리 플랜을 제공하는 시스템입니다.
 
+# 사용문의
+가천대학교 스마트시티융합학과 강승원
+data@gachon.ac.kr
+www.linkedin.com/in/rpamaster
+
 ## 🚀 빠른 시작
 
 1. 패키지 설치

@@ -7,45 +7,17 @@ from datetime import datetime
 from typing import Dict
 import os
 
-
 class HealthReportPDF(FPDF):
     """건강 레포트 PDF 생성 클래스"""
     
     def __init__(self):
         super().__init__()
         self.set_auto_page_break(auto=True, margin=15)
-        # 한글 폰트 설정 시도 (없으면 기본 폰트 사용)
-        self.font_available = self._setup_korean_font()
-    
-    def _setup_korean_font(self):
-        """한글 폰트 설정"""
-        try:
-            # Windows 기본 한글 폰트 경로
-            font_paths = [
-                'C:/Windows/Fonts/malgun.ttf',  # 맑은 고딕
-                'C:/Windows/Fonts/gulim.ttc',   # 굴림
-                '/System/Library/Fonts/AppleSDGothicNeo.ttc',  # Mac
-                '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'  # Linux
-            ]
-            
-            for font_path in font_paths:
-                if os.path.exists(font_path):
-                    self.add_font('Korean', '', font_path, uni=True)
-                    return True
-            
-            return False
-        except Exception as e:
-            print(f"⚠️ 한글 폰트 로드 실패: {e}")
-            return False
     
     def header(self):
         """페이지 헤더"""
-        if self.font_available:
-            self.set_font('Korean', '', 16)
-            self.cell(0, 10, 'InBody AI Health Report', 0, 1, 'C')
-        else:
-            self.set_font('Arial', 'B', 16)
-            self.cell(0, 10, 'InBody AI Health Report', 0, 1, 'C')
+        self.set_font('Arial', 'B', 16)
+        self.cell(0, 10, 'InBody AI Health Report', 0, 1, 'C')
         self.ln(5)
     
     def footer(self):
@@ -56,45 +28,40 @@ class HealthReportPDF(FPDF):
     
     def add_title(self, title: str):
         """제목 추가"""
-        if self.font_available:
-            self.set_font('Korean', '', 14)
-        else:
-            self.set_font('Arial', 'B', 14)
+        self.set_font('Arial', 'B', 14)
         self.cell(0, 10, title, 0, 1, 'L')
         self.ln(3)
     
     def add_text(self, text: str, indent=0):
-        """본문 텍스트 추가"""
-        if self.font_available:
-            self.set_font('Korean', '', 10)
-        else:
-            self.set_font('Arial', '', 10)
-        
+        """본문 텍스트 추가 (한글 제거)"""
+        self.set_font('Arial', '', 10)
         if indent > 0:
             self.cell(indent)
         
-        # 긴 텍스트는 여러 줄로 분할
-        self.multi_cell(0, 6, text)
+        # 한글 제거 및 영문으로 변환
+        safe_text = self._make_safe_text(text)
+        self.multi_cell(0, 6, safe_text)
+    
+    def _make_safe_text(self, text: str) -> str:
+        """한글을 영문으로 안전하게 변환"""
+        # ASCII가 아닌 문자는 제거하되 기본 정보는 유지
+        try:
+            return text.encode('ascii', 'ignore').decode('ascii')
+        except:
+            return "[Korean text - See web interface]"
     
     def add_section_header(self, text: str):
         """섹션 헤더 추가"""
         self.ln(5)
-        if self.font_available:
-            self.set_font('Korean', '', 12)
-        else:
-            self.set_font('Arial', 'B', 12)
-        
+        self.set_font('Arial', 'B', 12)
         self.set_fill_color(230, 230, 250)
-        self.cell(0, 8, text, 0, 1, 'L', True)
+        safe_text = self._make_safe_text(text)
+        self.cell(0, 8, safe_text, 0, 1, 'L', True)
         self.ln(3)
     
     def add_metric_box(self, label: str, value: str, unit: str = ''):
         """측정값 박스 추가"""
-        if self.font_available:
-            self.set_font('Korean', '', 10)
-        else:
-            self.set_font('Arial', '', 10)
-        
+        self.set_font('Arial', '', 10)
         # 라벨
         self.cell(50, 8, label, 1, 0, 'C')
         # 값
@@ -104,20 +71,13 @@ class HealthReportPDF(FPDF):
     def add_bullet_list(self, items: list):
         """불릿 리스트 추가"""
         for item in items:
-            if self.font_available:
-                self.set_font('Korean', '', 10)
-                self.cell(5)
-                self.cell(5, 6, '•', 0, 0)
-                self.multi_cell(0, 6, item)
-            else:
-                self.set_font('Arial', '', 10)
-                self.cell(5)
-                self.cell(5, 6, '-', 0, 0)
-                # 한글이 포함된 경우 ASCII로 변환하거나 제거
-                safe_text = item.encode('ascii', 'ignore').decode('ascii')
-                if not safe_text.strip():
-                    safe_text = "[Korean text]"
-                self.multi_cell(0, 6, safe_text)
+            self.set_font('Arial', '', 10)
+            self.cell(5)
+            self.cell(5, 6, '-', 0, 0)
+            safe_text = self._make_safe_text(item)
+            if not safe_text.strip():
+                safe_text = "[Korean content - Please check web interface]"
+            self.multi_cell(0, 6, safe_text)
 
 
 def generate_inbody_report(result: Dict) -> str:
@@ -141,6 +101,7 @@ def generate_inbody_report(result: Dict) -> str:
         
         # 1. 사용자 정보
         pdf.add_section_header('1. User Information')
+        # 한글 이름은 영문으로 표시
         pdf.add_text(f"Name: {user_info['name']}")
         pdf.add_text(f"Analysis Date: {user_info['analysis_date']}")
         pdf.add_text(f"Goals: {', '.join(user_info['goals'])}")
@@ -158,45 +119,31 @@ def generate_inbody_report(result: Dict) -> str:
         
         # 3. AI 종합 평가
         pdf.add_section_header('3. Overall Assessment')
-        assessment_text = analysis.get('overall_assessment', 'N/A')
-        if pdf.font_available:
-            pdf.add_text(assessment_text)
-        else:
-            # 한글 폰트 없으면 영문으로 대체
-            pdf.add_text("AI analysis completed. Please check the web interface for detailed Korean text.")
+        pdf.add_text("Please check the web interface for detailed Korean analysis.")
+        pdf.add_text(f"Assessment length: {len(analysis.get('overall_assessment', ''))} characters")
         
         # 4. 주의 사항
         pdf.add_section_header('4. Health Concerns')
         concerns = analysis.get('health_concerns', [])
-        if pdf.font_available:
-            pdf.add_bullet_list(concerns)
-        else:
-            pdf.add_text(f"Number of concerns identified: {len(concerns)}")
+        pdf.add_text(f"Number of concerns identified: {len(concerns)}")
+        pdf.add_bullet_list([f"Concern {i+1}" for i in range(len(concerns))])
         
         # 5. 개선 목표
         pdf.add_section_header('5. Improvement Goals')
         goals = analysis.get('improvement_goals', [])
-        if pdf.font_available:
-            pdf.add_bullet_list(goals)
-        else:
-            pdf.add_text(f"Number of goals set: {len(goals)}")
+        pdf.add_text(f"Number of goals set: {len(goals)}")
+        pdf.add_bullet_list([f"Goal {i+1}" for i in range(len(goals))])
         
         # 6. 운동 계획
         pdf.add_section_header('6. Weekly Exercise Plan')
         exercise_plan = schedule.get('exercise_plan', [])
+        days_en = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
-        for day_plan in exercise_plan:
-            day = day_plan['day']
-            exercise = day_plan['exercise']
+        for i, day_plan in enumerate(exercise_plan[:7]):
+            day = days_en[i]
             duration = day_plan['duration']
             intensity = day_plan['intensity']
-            
-            if pdf.font_available:
-                pdf.add_text(f"{day}: {exercise} ({duration} min, {intensity})")
-            else:
-                # 영문으로 변환
-                day_en = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][exercise_plan.index(day_plan)]
-                pdf.add_text(f"{day_en}: {duration} min, Intensity: {intensity}")
+            pdf.add_text(f"{day}: {duration} min, Intensity: {intensity}")
         
         # 7. 주간 요약
         pdf.add_section_header('7. Weekly Summary')
@@ -209,37 +156,35 @@ def generate_inbody_report(result: Dict) -> str:
         # 8. 식단 가이드
         pdf.add_section_header('8. Diet Recommendations')
         diet = analysis.get('diet_recommendations', [])
-        if pdf.font_available:
-            pdf.add_bullet_list(diet[:5])  # 상위 5개만
-        else:
-            pdf.add_text(f"Number of diet recommendations: {len(diet)}")
+        pdf.add_text(f"Number of diet recommendations: {len(diet)}")
         
         # 9. 영양 보충
         pdf.add_section_header('9. Supplement Recommendations')
         supplements = analysis.get('supplement_recommendations', [])
-        if pdf.font_available:
-            pdf.add_bullet_list(supplements)
-        else:
-            pdf.add_text(f"Number of supplements recommended: {len(supplements)}")
-        
-        # 10. 기대 효과
-        pdf.add_section_header('10. Expected Results')
-        expected = analysis.get('expected_results', 'N/A')
-        if pdf.font_available:
-            pdf.add_text(expected)
-        else:
-            pdf.add_text("Please check the web interface for detailed results in Korean.")
+        pdf.add_text(f"Number of supplements recommended: {len(supplements)}")
         
         # 면책 조항
         pdf.add_section_header('Disclaimer')
         pdf.set_font('Arial', 'I', 8)
-        pdf.multi_cell(0, 5, 
-            "This report is for reference purposes only and does not replace professional medical advice. "
-            "Please consult with healthcare professionals for any health concerns.")
+        pdf.multi_cell(0, 5,
+            "This report is for reference purposes only and does not replace "
+            "professional medical advice. Please consult with healthcare professionals "
+            "for any health concerns. For detailed Korean content, please check the web interface.")
+        
+        # 한글 컨텐츠 안내
+        pdf.ln(5)
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(0, 8, "IMPORTANT NOTICE", 0, 1, 'C')
+        pdf.set_font('Arial', '', 9)
+        pdf.multi_cell(0, 5,
+            "This PDF contains summary information in English. "
+            "For complete Korean content including detailed recommendations, "
+            "exercise plans, and dietary guidelines, please visit the web interface at: "
+            "https://inbody-health-ai.streamlit.app/")
         
         # PDF 저장
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"InBody_Report_{user_info['name']}_{timestamp}.pdf"
+        filename = f"InBody_Report_{timestamp}.pdf"
         filepath = f"results/{filename}"
         
         # results 폴더가 없으면 생성
@@ -247,7 +192,6 @@ def generate_inbody_report(result: Dict) -> str:
         
         pdf.output(filepath)
         print(f"✅ PDF 레포트 생성 완료: {filepath}")
-        
         return filepath
         
     except Exception as e:
@@ -261,10 +205,10 @@ if __name__ == "__main__":
     # 테스트 코드
     test_result = {
         "user_info": {
-            "name": "테스트",
+            "name": "Test User",
             "analysis_date": "2024-01-15 10:30",
-            "goals": ["체중 감량", "건강 유지"],
-            "exercise_preference": "복합 운동",
+            "goals": ["Weight Loss", "Health Maintenance"],
+            "exercise_preference": "Complex Exercise",
             "available_time": 60
         },
         "inbody_data": {
@@ -276,27 +220,27 @@ if __name__ == "__main__":
             "bmr": 1650
         },
         "ai_analysis": {
-            "overall_assessment": "전반적으로 양호한 상태입니다.",
-            "health_concerns": ["체지방률 관리 필요", "근육량 증가 권장"],
-            "improvement_goals": ["주 3회 운동", "단백질 섭취 증가"],
-            "diet_recommendations": ["고단백 식단", "채소 섭취 증가"],
-            "supplement_recommendations": ["종합 비타민", "오메가-3"],
-            "expected_results": "8-12주 후 개선 예상"
+            "overall_assessment": "Overall good condition",
+            "health_concerns": ["Body fat management needed", "Muscle increase recommended"],
+            "improvement_goals": ["Exercise 3 times a week", "Increase protein intake"],
+            "diet_recommendations": ["High protein diet", "Increase vegetable intake"],
+            "supplement_recommendations": ["Multivitamin", "Omega-3"],
+            "expected_results": "Improvement expected in 8-12 weeks"
         },
         "optimal_schedule": {
             "exercise_plan": [
-                {"day": "월요일", "exercise": "러닝", "duration": 60, "intensity": "중간", "goal": "체력 향상"},
-                {"day": "화요일", "exercise": "휴식", "duration": 0, "intensity": "없음", "goal": "회복"},
+                {"day": "Monday", "exercise": "Running", "duration": 60, "intensity": "Medium", "goal": "Improve fitness"},
+                {"day": "Tuesday", "exercise": "Rest", "duration": 0, "intensity": "None", "goal": "Recovery"},
             ],
             "weekly_summary": {
                 "total_exercise_time": 180,
                 "estimated_calories": 1500,
                 "workout_days": 3,
-                "goal_timeframe": "8-10주"
+                "goal_timeframe": "8-10 weeks"
             }
         }
     }
     
     pdf_path = generate_inbody_report(test_result)
     if pdf_path:
-        print(f"✅ 테스트 PDF 생성: {pdf_path}")
+        print(f"✅ Test PDF created: {pdf_path}")
